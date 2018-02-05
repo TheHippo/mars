@@ -16,7 +16,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/roblillack/mars"
+	"github.com/TheHippo/mars"
 )
 
 // SourceInfo is the top-level struct containing all extracted information

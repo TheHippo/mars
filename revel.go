@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	MarsImportPath     = "github.com/roblillack/mars"
+	MarsImportPath     = "github.com/TheHippo/mars"
 	defaultLoggerFlags = log.Ldate | log.Ltime | log.Lshortfile
 )
 

@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/roblillack/mars"
+	"github.com/TheHippo/mars"
 
 	"golang.org/x/net/websocket"
 )
