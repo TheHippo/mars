@@ -344,11 +344,7 @@ func (router *Router) Reverse(action string, argValues map[string]string) *Actio
 				val = "<nil>"
 				ERROR.Print("mars/router: reverse route missing route arg ", el[1:])
 			}
-			if el[0] == '*' {
-				pathElements[i] = (&url.URL{Path: val}).RequestURI()
-			} else {
-				pathElements[i] = url.PathEscape(val)
-			}
+			pathElements[i] = val
 			delete(argValues, el[1:])
 			continue
 		}
