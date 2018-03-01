@@ -33,7 +33,7 @@ which can be used like this:
         mars.InitDefaults("dev", filepath.Join(filepath.Dir(filename), "..", ".."))
         mars.DevMode = true
 
-        go mars.Run()
+        go mars.Run(0)
 
         time.Sleep(1 * time.Second)
     }

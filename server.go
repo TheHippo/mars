@@ -1,10 +1,12 @@
 package mars
 
 import (
-	"crypto/tls"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
-	"sync"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -15,7 +17,6 @@ var (
 	MainTemplateLoader *TemplateLoader
 	MainWatcher        *Watcher
 	Server             *http.Server
-	SecureServer       *http.Server
 )
 
 // Handler is a http.HandlerFunc which exposes Mars' filtering, routing, and
@@ -62,69 +63,54 @@ func handleInternal(w http.ResponseWriter, r *http.Request, ws *websocket.Conn) 
 	}
 }
 
-func makeServer(addr string) *http.Server {
-	return &http.Server{
-		Addr:         addr,
+// Run the server.
+// This is called from the generated main file.
+// If port is non-zero, use that.  Else, read the port from app.conf.
+func Run(port int) {
+	address := HttpAddr
+	if port == 0 {
+		port = HttpPort
+	}
+
+	var network = "tcp"
+	var localAddress string
+
+	// If the port is zero, treat the address as a fully qualified local address.
+	// This address must be prefixed with the network type followed by a colon,
+	// e.g. unix:/tmp/app.socket or tcp6:::1 (equivalent to tcp6:0:0:0:0:0:0:0:1)
+	if port == 0 {
+		parts := strings.SplitN(address, ":", 2)
+		network = parts[0]
+		localAddress = parts[1]
+	} else {
+		localAddress = address + ":" + strconv.Itoa(port)
+	}
+
+	Server = &http.Server{
+		Addr:         localAddress,
 		Handler:      Handler,
 		ReadTimeout:  time.Duration(Config.IntDefault("timeout.read", 0)) * time.Second,
 		WriteTimeout: time.Duration(Config.IntDefault("timeout.write", 0)) * time.Second,
 	}
-}
 
-func Run() {
-	wg := sync.WaitGroup{}
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		fmt.Printf("Listening on %s...\n", localAddress)
+	}()
 
-	if !HttpSsl || DualStackHTTP {
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			INFO.Printf("Listening on %s (HTTP) ...\n", HttpAddr)
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			Server = makeServer(HttpAddr)
-			ERROR.Fatalln("Failed to serve:", Server.ListenAndServe())
-		}()
-	}
-
-	if HttpSsl || DualStackHTTP {
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			INFO.Printf("Listening on %s (HTTPS) ...\n", SSLAddr)
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			serveTLS(SSLAddr)
-		}()
-	}
-
-	wg.Wait()
-}
-
-func serveTLS(addr string) {
-	SecureServer = makeServer(addr)
-
-	SecureServer.TLSConfig = &tls.Config{
-		Certificates: make([]tls.Certificate, 1),
-	}
-	if SelfSignedCert {
-		keypair, err := createCertificate(SelfSignedOrganization, SelfSignedDomains)
-		if err != nil {
-			ERROR.Fatalln("Unable to create key pair:", err)
+	if HttpSsl {
+		if network != "tcp" {
+			// This limitation is just to reduce complexity, since it is standard
+			// to terminate SSL upstream when using unix domain sockets.
+			ERROR.Fatalln("SSL is only supported for TCP sockets. Specify a port to listen on.")
 		}
-		SecureServer.TLSConfig.Certificates[0] = keypair
+		ERROR.Fatalln("Failed to listen:",
+			Server.ListenAndServeTLS(HttpSslCert, HttpSslKey))
 	} else {
-		keypair, err := tls.LoadX509KeyPair(HttpSslCert, HttpSslKey)
+		listener, err := net.Listen(network, localAddress)
 		if err != nil {
-			ERROR.Fatalln("Unable to load key pair:", err)
+			ERROR.Fatalln("Failed to listen:", err)
 		}
-		SecureServer.TLSConfig.Certificates[0] = keypair
+		ERROR.Fatalln("Failed to serve:", Server.Serve(listener))
 	}
-
-	ERROR.Fatalln("Failed to serve:", SecureServer.ListenAndServeTLS("", ""))
 }
