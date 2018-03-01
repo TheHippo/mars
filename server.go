@@ -1,14 +1,10 @@
 package mars
 
 import (
-	"context"
 	"crypto/tls"
 	"io"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -75,34 +71,6 @@ func makeServer(addr string) *http.Server {
 	}
 }
 
-func initGracefulShutdown() {
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-stop
-		INFO.Println("Shutting down listeners ...")
-
-		ctx := context.Background()
-		if timeout := Config.IntDefault("timeout.shutdown", 0); timeout != 0 {
-			newCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
-			ctx = newCtx
-			defer cancel()
-		}
-
-		if SecureServer != nil {
-			if err := SecureServer.Shutdown(ctx); err != nil {
-				ERROR.Println(err)
-			}
-		}
-		if Server != nil {
-			if err := Server.Shutdown(ctx); err != nil {
-				ERROR.Println(err)
-			}
-		}
-	}()
-}
-
 func Run() {
 	wg := sync.WaitGroup{}
 
@@ -117,9 +85,7 @@ func Run() {
 			defer wg.Done()
 
 			Server = makeServer(HttpAddr)
-			if err := Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				ERROR.Fatalln("Failed to serve:", err)
-			}
+			ERROR.Fatalln("Failed to serve:", Server.ListenAndServe())
 		}()
 	}
 
@@ -138,8 +104,6 @@ func Run() {
 	}
 
 	wg.Wait()
-
-	runShutdownHooks()
 }
 
 func serveTLS(addr string) {
@@ -162,7 +126,5 @@ func serveTLS(addr string) {
 		SecureServer.TLSConfig.Certificates[0] = keypair
 	}
 
-	if err := SecureServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-		ERROR.Fatalln("Failed to serve:", err)
-	}
+	ERROR.Fatalln("Failed to serve:", SecureServer.ListenAndServeTLS("", ""))
 }
