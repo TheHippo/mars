@@ -82,7 +82,7 @@ func (m MethodSpec) String() string {
 		if idx > 0 {
 			str += ", "
 		}
-		str += fmt.Sprintf("%s %s", i.Name, i.TypeExpr.Expr)
+		str += fmt.Sprintf("%s %s", i.Name, i.TypeExpr)
 	}
 	return str + ")"
 }
