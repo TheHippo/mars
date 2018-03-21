@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	mars.Run()
+	mars.Run(8080)
 }
