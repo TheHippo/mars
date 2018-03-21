@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/roblillack/mars"
+	"github.com/TheHippo/mars"
 )
 
 func main() {
